@@ -1,0 +1,316 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile for clients and barbers.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "displayName": { "type": "string" },
+        "photoURL": { "type": "string" },
+        "role": { "type": "string", "enum": ["client", "barber"] },
+        "phoneNumber": { "type": "string" },
+        "referralCode": { "type": "string" },
+        "referralCount": { "type": "integer" },
+        "balance": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "isBlocked": { "type": "boolean" },
+        "subscriptionStatus": { "type": "string", "enum": ["free", "premium"] },
+        "subscriptionExpiry": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "email", "role"]
+    },
+    "UserTransaction": {
+      "title": "UserTransaction",
+      "description": "Financial movements in a user's balance.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "type": { "type": "string", "enum": ["deposit", "withdraw", "payment", "received", "refund"] },
+        "amount": { "type": "number" },
+        "description": { "type": "string" },
+        "relatedId": { "type": "string", "description": "ID of the appointment or negotiation" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "type", "amount", "createdAt"]
+    },
+    "PlatformTransaction": {
+      "title": "PlatformTransaction",
+      "description": "Monetization transactions for the platform.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "type": { "type": "string", "enum": ["appointment_fee", "negotiation_fee", "subscription", "vault_fee"] },
+        "amount": { "type": "number" },
+        "userId": { "type": "string" },
+        "description": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["type", "amount", "userId", "createdAt"]
+    },
+    "FinancialReport": {
+      "title": "FinancialReport",
+      "description": "Aggregated financial data.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "period": { "type": "string" },
+        "totalRevenue": { "type": "number" },
+        "appointmentFees": { "type": "number" },
+        "negotiationFees": { "type": "number" },
+        "subscriptionRevenue": { "type": "number" },
+        "vaultFees": { "type": "number" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["period", "totalRevenue", "updatedAt"]
+    },
+    "AdminLog": {
+      "title": "AdminLog",
+      "description": "Logs of admin actions.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "adminId": { "type": "string" },
+        "action": { "type": "string" },
+        "targetId": { "type": "string" },
+        "details": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["adminId", "action", "createdAt"]
+    },
+    "Barbershop": {
+      "title": "Barbershop",
+      "description": "Details about a barbershop.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "ownerId": { "type": "string" },
+        "address": { "type": "string" },
+        "location": { "type": "object" },
+        "price": { "type": "number" },
+        "description": { "type": "string" },
+        "imageUrl": { "type": "string" },
+        "rating": { "type": "number" }
+      },
+      "required": ["name", "ownerId", "price"]
+    },
+    "Appointment": {
+      "title": "Appointment",
+      "description": "A scheduled haircut slot.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "barbershopId": { "type": "string" },
+        "clientId": { "type": "string" },
+        "startTime": { "type": "string", "format": "date-time" },
+        "endTime": { "type": "string", "format": "date-time" },
+        "status": { "type": "string", "enum": ["pending", "accepted", "cancelled", "completed", "trading"] },
+        "paymentStatus": { "type": "string", "enum": ["pending", "paid", "refunded"] },
+        "paymentMethod": { "type": "string", "enum": ["pix", "card", "cash"] },
+        "price": { "type": "number" }
+      },
+      "required": ["barbershopId", "clientId", "startTime", "status"]
+    },
+    "Negotiation": {
+      "title": "Negotiation",
+      "description": "A proposal to trade or buy an appointment slot.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "appointmentId": { "type": "string" },
+        "proposerId": { "type": "string" },
+        "ownerId": { "type": "string" },
+        "offerAmount": { "type": "number" },
+        "suggestedAppointmentId": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "accepted", "rejected", "cancelled"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["appointmentId", "proposerId", "ownerId", "status"]
+    },
+    "ChatMessage": {
+      "title": "ChatMessage",
+      "description": "Message in a negotiation chat.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "negotiationId": { "type": "string" },
+        "senderId": { "type": "string" },
+        "text": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" }
+      },
+      "required": ["negotiationId", "senderId", "text", "timestamp"]
+    },
+    "Vault": {
+      "title": "Vault",
+      "description": "Collective vault for barbers.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "totalBalance": { "type": "number", "description": "Available balance for new campaigns" },
+        "reservedBalance": { "type": "number", "description": "Balance committed to active vouchers/sweepstakes" },
+        "sharePrice": { "type": "number" },
+        "totalShares": { "type": "integer" },
+        "activeBarbersCount": { "type": "integer" }
+      },
+      "required": ["totalBalance", "reservedBalance", "sharePrice"]
+    },
+    "VaultShare": {
+      "title": "VaultShare",
+      "description": "Shares bought by a barber.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "barberId": { "type": "string" },
+        "count": { "type": "integer" },
+        "amountInvested": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["barberId", "count", "amountInvested"]
+    },
+    "Sweepstake": {
+      "title": "Sweepstake",
+      "description": "Promotional sweepstake for clients.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "drawDate": { "type": "string", "format": "date-time" },
+        "status": { "type": "string", "enum": ["open", "drawn", "cancelled"] },
+        "winnersCount": { "type": "integer" },
+        "prizeValue": { "type": "number" }
+      },
+      "required": ["title", "drawDate", "status"]
+    },
+    "Voucher": {
+      "title": "Voucher",
+      "description": "Free haircut voucher for winners.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "sweepstakeId": { "type": "string" },
+        "clientId": { "type": "string" },
+        "code": { "type": "string" },
+        "status": { "type": "string", "enum": ["active", "used", "expired"] },
+        "expiryDate": { "type": "string", "format": "date-time" },
+        "value": { "type": "number" },
+        "usedAt": { "type": "string", "format": "date-time" },
+        "barberId": { "type": "string" }
+      },
+      "required": ["sweepstakeId", "clientId", "code", "status"]
+    },
+    "VaultTransaction": {
+      "title": "VaultTransaction",
+      "description": "Transaction in the collective vault.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "type": { "type": "string", "enum": ["contribution", "payout", "adjustment", "campaign_launch"] },
+        "amount": { "type": "number" },
+        "userId": { "type": "string" },
+        "description": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "voucherId": { "type": "string" }
+      },
+      "required": ["type", "amount", "userId", "createdAt"]
+    },
+    "SweepstakeRegistration": {
+      "title": "SweepstakeRegistration",
+      "description": "Client registration for a sweepstake.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "sweepstakeId": { "type": "string" },
+        "clientId": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["sweepstakeId", "clientId", "createdAt"]
+    },
+    "Notification": {
+      "title": "Notification",
+      "description": "In-app notification for users.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "title": { "type": "string" },
+        "message": { "type": "string" },
+        "type": { "type": "string", "enum": ["appointment", "negotiation", "sweepstake", "voucher", "system"] },
+        "read": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "link": { "type": "string" },
+        "relatedId": { "type": "string" }
+      },
+      "required": ["userId", "title", "message", "type", "read", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profiles."
+    },
+    "/barbershops/{shopId}": {
+      "schema": "Barbershop",
+      "description": "Barbershop details."
+    },
+    "/appointments/{appointmentId}": {
+      "schema": "Appointment",
+      "description": "Appointment slots."
+    },
+    "/negotiations/{negotiationId}": {
+      "schema": "Negotiation",
+      "description": "Trade negotiations."
+    },
+    "/negotiations/{negotiationId}/messages/{messageId}": {
+      "schema": "ChatMessage",
+      "description": "Messages within a negotiation."
+    },
+    "/vaults/{vaultId}": {
+      "schema": "Vault",
+      "description": "Collective vaults."
+    },
+    "/vault_shares/{shareId}": {
+      "schema": "VaultShare",
+      "description": "Barber shares in the vault."
+    },
+    "/sweepstakes/{sweepstakeId}": {
+      "schema": "Sweepstake",
+      "description": "Promotional sweepstakes."
+    },
+    "/vouchers/{voucherId}": {
+      "schema": "Voucher",
+      "description": "Client vouchers."
+    },
+    "/push_subscriptions/{userId}": {
+      "schema": "object",
+      "description": "Web push subscriptions for users."
+    },
+    "/sweepstake_registrations/{regId}": {
+      "schema": "SweepstakeRegistration",
+      "description": "Client registrations for sweepstakes."
+    },
+    "/vault_transactions/{transactionId}": {
+      "schema": "VaultTransaction",
+      "description": "Vault transaction history."
+    },
+    "/platform_transactions/{transactionId}": {
+      "schema": "PlatformTransaction",
+      "description": "Platform revenue transactions."
+    },
+    "/financial_reports/{reportId}": {
+      "schema": "FinancialReport",
+      "description": "Financial reports."
+    },
+    "/admin_logs/{logId}": {
+      "schema": "AdminLog",
+      "description": "Admin activity logs."
+    },
+    "/notifications/{notificationId}": {
+      "schema": "Notification",
+      "description": "User notifications."
+    }
+  }
+}

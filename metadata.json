@@ -1,0 +1,5 @@
+{
+  "name": "BarberTrade",
+  "description": "A modern barbershop scheduling and appointment marketplace where users can book and trade slots.",
+  "requestFramePermissions": ["geolocation"]
+}
