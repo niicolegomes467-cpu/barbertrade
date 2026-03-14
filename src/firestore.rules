@@ -1,0 +1,166 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    function isAdmin() {
+      return isAuthenticated() && 
+        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
+         (request.auth.token.email == "gi17072219@gmail.com" && request.auth.token.email_verified == true));
+    }
+
+    // Verifica se campos sensíveis não foram alterados pelo usuário comum
+    function isProfileUpdateSafe() {
+      let affectedKeys = request.resource.data.diff(resource.data).affectedKeys();
+      return !affectedKeys.hasAny(['balance', 'role', 'isBlocked', 'vaultShares', 'email', 'uid']);
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    match /users/{userId} {
+      // Apenas o próprio usuário ou admin pode ler os dados privados
+      allow read: if isOwner(userId) || isAdmin();
+      
+      // Criação inicial: impede que o usuário já comece como admin ou com saldo
+      allow create: if isOwner(userId) && 
+        request.resource.data.role in ['client', 'barber', 'pending'] &&
+        request.resource.data.balance == 0;
+      
+      // Update: Usuário não pode mudar seu próprio saldo, cargo ou status de bloqueio
+      allow update: if isAdmin() || (isOwner(userId) && isProfileUpdateSafe());
+    }
+
+    match /barbershops/{shopId} {
+      allow read: if true; // Público para exploração
+      allow create: if isAuthenticated() && request.resource.data.ownerId == request.auth.uid;
+      allow update: if isAuthenticated() && (resource.data.ownerId == request.auth.uid || isAdmin());
+      allow delete: if isAdmin();
+    }
+
+    match /appointments/{appointmentId} {
+      // Apenas as partes envolvidas ou admin leem
+      allow read: if isAuthenticated() && (
+        resource.data.clientId == request.auth.uid || 
+        get(/databases/$(database)/documents/barbershops/$(resource.data.barbershopId)).data.ownerId == request.auth.uid ||
+        isAdmin()
+      );
+      allow create: if isAuthenticated() && request.resource.data.clientId == request.auth.uid;
+      allow update: if isAuthenticated() && (
+        resource.data.clientId == request.auth.uid || 
+        get(/databases/$(database)/documents/barbershops/$(resource.data.barbershopId)).data.ownerId == request.auth.uid ||
+        isAdmin()
+      );
+    }
+
+    match /negotiations/{negotiationId} {
+      allow read: if isAuthenticated() && (
+        resource.data.proposerId == request.auth.uid || 
+        resource.data.ownerId == request.auth.uid ||
+        isAdmin()
+      );
+      allow create: if isAuthenticated() && request.resource.data.proposerId == request.auth.uid;
+      allow update: if isAuthenticated() && (
+        resource.data.proposerId == request.auth.uid || 
+        resource.data.ownerId == request.auth.uid ||
+        isAdmin()
+      );
+      
+      match /messages/{messageId} {
+        allow read: if isAuthenticated() && (
+          get(/databases/$(database)/documents/negotiations/$(negotiationId)).data.proposerId == request.auth.uid || 
+          get(/databases/$(database)/documents/negotiations/$(negotiationId)).data.ownerId == request.auth.uid ||
+          isAdmin()
+        );
+        allow create: if isAuthenticated() && request.resource.data.senderId == request.auth.uid;
+      }
+    }
+
+    match /platform_transactions/{transactionId} {
+      allow read: if isAdmin() || (isAuthenticated() && resource.data.userId == request.auth.uid);
+      // Usuários NÃO podem criar transações de depósito ou saque diretamente (deve ser via Server/Stripe)
+      allow create: if isAdmin() || (
+        isAuthenticated() && 
+        request.resource.data.userId == request.auth.uid && 
+        request.resource.data.type in ['appointment_fee', 'negotiation_fee', 'vault_fee']
+      );
+    }
+
+    match /vaults/{vaultId} {
+      allow read: if isAuthenticated();
+      // Permite update via transação de agendamento se for para deduzir saldo reservado
+      allow update: if isAdmin() || (
+        isAuthenticated() && 
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reservedBalance']) &&
+        request.resource.data.reservedBalance < resource.data.reservedBalance
+      );
+    }
+
+    match /vault_shares/{shareId} {
+      allow read: if isAuthenticated() && (resource.data.barberId == request.auth.uid || isAdmin());
+      allow create: if isAuthenticated() && request.resource.data.barberId == request.auth.uid;
+    }
+
+    match /sweepstakes/{sweepstakeId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /vouchers/{voucherId} {
+      allow read: if isAuthenticated() && (resource.data.clientId == request.auth.uid || resource.data.barberId == request.auth.uid || isAdmin());
+      allow create: if isAdmin();
+      // Permite que o dono do voucher o marque como usado durante o agendamento
+      allow update: if isAdmin() || (
+        isAuthenticated() && 
+        resource.data.clientId == request.auth.uid && 
+        resource.data.status == 'active' && 
+        request.resource.data.status == 'used' &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'usedAt', 'barberId', 'appointmentId'])
+      );
+    }
+
+    match /sweepstake_registrations/{regId} {
+      allow read: if isAuthenticated() && (resource.data.clientId == request.auth.uid || isAdmin());
+      allow create: if isAuthenticated() && request.resource.data.clientId == request.auth.uid;
+    }
+
+    match /vault_transactions/{transactionId} {
+      allow read: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
+      // Permite criar registro de payout se o usuário for o barbeiro recebendo ou o sistema
+      allow create: if isAuthenticated() && (
+        request.resource.data.userId == request.auth.uid || 
+        isAdmin()
+      );
+    }
+
+    match /financial_reports/{reportId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
+    match /admin_logs/{logId} {
+      allow read: if isAdmin();
+      allow create: if isAdmin();
+    }
+    
+    match /push_subscriptions/{userId} {
+      allow read, write: if isOwner(userId) || isAdmin();
+    }
+
+    match /notifications/{notificationId} {
+      allow read, update: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      allow create: if isAuthenticated(); // Users can send notifications to each other (e.g. negotiation)
+      allow delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
+    }
+  }
+}
